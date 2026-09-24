@@ -595,7 +595,7 @@ const storageNote = computed(() =>
 .switch {
   position: relative;
   width: 52px;
-  height: 32px;
+  height: var(--tap-target);
   flex-shrink: 0;
   padding: 0;
   background-color: var(--color-border-strong);
@@ -611,7 +611,7 @@ const storageNote = computed(() =>
 
 .switch-knob {
   position: absolute;
-  top: 3px;
+  top: calc((var(--tap-target) - 26px) / 2);
   left: 3px;
   width: 26px;
   height: 26px;
@@ -666,7 +666,7 @@ const storageNote = computed(() =>
 
 .color-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--tap-target), 1fr));
   gap: var(--space-2);
 }
 

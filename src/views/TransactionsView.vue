@@ -272,8 +272,8 @@ const deletePreview = computed(() =>
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--tap-target);
+  height: var(--tap-target);
   background: transparent;
   border: none;
   border-radius: var(--radius-circle);

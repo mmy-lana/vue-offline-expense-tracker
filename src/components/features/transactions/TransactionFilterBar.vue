@@ -47,6 +47,8 @@ const emit = defineEmits<{
 const haptics = useHaptics();
 const isSheetOpen = ref(false);
 const isDateSheetOpen = ref(false);
+/** Polite status text for screen readers when filters are cleared. */
+const announcement = ref('');
 
 const typeOptions: Array<{ label: string; value: TransactionType | 'all' }> = [
   { label: 'All', value: 'all' },
@@ -108,6 +110,7 @@ const handleReset = (): void => {
   haptics.trigger('warning');
   emit('update:modelValue', createDefaultFilters());
   emit('reset');
+  announcement.value = 'Filters cleared';
 };
 
 const handleDateInput = (key: 'from' | 'to', event: Event): void => {
@@ -162,6 +165,10 @@ const applyAllTime = (): void => {
 
 <template>
   <section class="filter-bar" aria-label="Ledger filters">
+    <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+      {{ announcement }}
+    </p>
+
     <div class="search-row">
       <AppInput
         class="search-field"
@@ -325,6 +332,18 @@ const applyAllTime = (): void => {
   gap: var(--space-2);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .search-row {
   display: flex;
   align-items: center;
@@ -390,7 +409,7 @@ const applyAllTime = (): void => {
   align-items: center;
   gap: var(--space-1);
   flex-shrink: 0;
-  min-height: 32px;
+  min-height: var(--tap-target);
   padding: 0 var(--space-3);
   background-color: var(--color-primary-soft);
   border: 1px solid transparent;
@@ -426,7 +445,7 @@ const applyAllTime = (): void => {
 
 .sheet-clear {
   align-self: flex-start;
-  min-height: 32px;
+  min-height: var(--tap-target);
   padding: 0 var(--space-3);
   background-color: var(--color-surface-sunken);
   border: 1px solid var(--color-border);
@@ -446,6 +465,15 @@ const applyAllTime = (): void => {
 .date-row {
   display: flex;
   gap: var(--space-3);
+}
+
+/* 360px-class devices: side-by-side date fields cannot hold a full date value,
+   so they stack instead of overflowing the sheet. */
+@media (max-width: 380px) {
+  .date-row {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
 }
 
 .date-field {

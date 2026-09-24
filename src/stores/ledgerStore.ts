@@ -45,7 +45,14 @@ interface LedgerState {
   categories: Category[];
   accounts: Account[];
   budgets: Budget[];
-  /** `true` once every table has produced its first emission. */
+  /** Number of tables that have delivered their first live-query emission. */
+  loadedTables: number;
+  /**
+   * `true` once *every* table has emitted at least once. Consumers that resolve
+   * reference data (accounts, categories) must not act on a partially hydrated
+   * store: the four subscriptions settle independently, so a form primed on the
+   * first emission could see an empty account list and disable itself forever.
+   */
   isReady: boolean;
   isLoading: boolean;
   error: string | null;
@@ -60,6 +67,9 @@ interface Subscription {
  * app), so they are deliberately kept out of reactive state.
  */
 let subscriptions: Subscription[] = [];
+
+/** transactions, categories, accounts, budgets. */
+const LEDGER_TABLE_COUNT = 4;
 
 const toMessage = (error: unknown, fallback: string): string =>
   error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
@@ -76,6 +86,7 @@ export const useLedgerStore = defineStore('ledger', {
     categories: [],
     accounts: [],
     budgets: [],
+    loadedTables: 0,
     isReady: false,
     isLoading: false,
     error: null
@@ -166,7 +177,8 @@ export const useLedgerStore = defineStore('ledger', {
         const subscription = liveQuery(querier).subscribe({
           next: (value) => {
             apply(value as T);
-            this.isReady = true;
+            this.loadedTables += 1;
+            if (this.loadedTables >= LEDGER_TABLE_COUNT) this.isReady = true;
           },
           error: (error: unknown) => {
             this.error = toMessage(error, 'Unable to read the local database');
@@ -210,6 +222,8 @@ export const useLedgerStore = defineStore('ledger', {
         subscription.unsubscribe();
       }
       subscriptions = [];
+      this.loadedTables = 0;
+      this.isReady = false;
     },
 
     clearError(): void {

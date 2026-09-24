@@ -26,12 +26,26 @@ import AccountPicker from '@/components/molecules/AccountPicker.vue';
 import CategoryPicker from '@/components/molecules/CategoryPicker.vue';
 import DateNavigator from '@/components/molecules/DateNavigator.vue';
 import { resolveIconName, ICON_NAMES, type IconName } from '@/components/ui/icons';
-import { formatMinorToMajorString } from '@/utils/money';
+import { formatMinorToMajorString, getCurrencyFractionDigits } from '@/utils/money';
 import { getCurrentLocalDateString, shiftDateByDays } from '@/utils/date';
 import { validateTransactionInput } from '@/utils/validation';
 import type { CategoryType, NewCategoryDTO, TransactionType } from '@/types/models';
 
 const MAX_INPUT_DIGITS = 12;
+
+/**
+ * Draft form of a stored amount, used when seeding the editable buffer.
+ *
+ * `formatMinorToMajorString` is canonical (`0.00`, `45.00`) — correct for display
+ * but wrong for an editable buffer, because the entry guard refuses new digits
+ * once the fraction is full. Trimming trailing fraction zeros keeps the buffer
+ * appendable: `0.00` -> `0`, `45.00` -> `45`, `12.50` -> `12.5`.
+ */
+const toDraftAmountString = (minorUnits: number, currency: string): string => {
+  const canonical = formatMinorToMajorString(minorUnits, currency);
+  if (!canonical.includes('.')) return canonical;
+  return canonical.replace(/0+$/, '').replace(/\.$/, '');
+};
 const CATEGORY_COLORS = [
   '#10B981',
   '#F59E0B',
@@ -130,12 +144,18 @@ const canSave = computed(
 
 /* ------------------------------- initialisation ---------------------------- */
 
+/**
+ * Fills the form from live data. Idempotent by design: it only fills fields that
+ * are still empty, so a late-arriving account list cannot overwrite a choice the
+ * user already made, and a form is never left permanently unsavable because it
+ * primed against an empty reference set.
+ */
 const primeForm = (): void => {
   const existing = editingId.value.length > 0 ? ledgerStore.transactionById(editingId.value) : undefined;
 
   if (existing) {
     transactionType.value = existing.type;
-    amountString.value = formatMinorToMajorString(existing.amount, entryCurrency.value);
+    amountString.value = toDraftAmountString(existing.amount, entryCurrency.value);
     selectedAccountId.value = existing.accountId;
     selectedToAccountId.value = existing.toAccountId ?? '';
     selectedCategoryId.value = existing.categoryId;
@@ -144,30 +164,45 @@ const primeForm = (): void => {
     return;
   }
 
-  const firstAccount = ledgerStore.activeAccounts[0];
-  selectedAccountId.value = firstAccount?.id ?? '';
-  selectedToAccountId.value = ledgerStore.activeAccounts[1]?.id ?? '';
-  selectedCategoryId.value = visibleCategories.value[0]?.id ?? '';
+  if (selectedAccountId.value.length === 0) {
+    selectedAccountId.value = ledgerStore.activeAccounts[0]?.id ?? '';
+  }
+
+  if (selectedToAccountId.value.length === 0 || selectedToAccountId.value === selectedAccountId.value) {
+    selectedToAccountId.value =
+      ledgerStore.activeAccounts.find((account) => account.id !== selectedAccountId.value)?.id ?? '';
+  }
+
+  if (!visibleCategories.value.some((category) => category.id === selectedCategoryId.value)) {
+    selectedCategoryId.value = visibleCategories.value[0]?.id ?? '';
+  }
 };
 
-// Re-prime once the live queries deliver the first emission (or the id changes).
+// Prime on readiness *and* whenever reference data or the edited record changes.
 watch(
-  () => [ledgerStore.isReady, editingId.value] as const,
-  ([isReady]) => {
-    if (isReady) primeForm();
-  },
+  () => [ledgerStore.isReady, ledgerStore.activeAccounts.length, visibleCategories.value.length, editingId.value] as const,
+  () => primeForm(),
   { immediate: true }
 );
 
-watch(selectedAccountId, (accountId) => {
+const digitsForAccount = (accountId: string): number => {
+  const account = ledgerStore.accountById(accountId);
+  return getCurrencyFractionDigits(account?.currency ?? activeCurrency.value);
+};
+
+watch(selectedAccountId, (accountId, previousAccountId) => {
   if (!selectedToAccountId.value || selectedToAccountId.value === accountId) {
     selectedToAccountId.value = ledgerStore.activeAccounts.find((account) => account.id !== accountId)?.id ?? '';
   }
 
-  if (isEditing.value) return;
-  const existing = ledgerStore.transactionById(editingId.value);
-  if (existing) return;
-  amountString.value = formatMinorToMajorString(parseMajorToMinor(amountString.value, entryCurrency.value), entryCurrency.value);
+  // Re-scale the buffer only when the exponent really changes. Rewriting it on
+  // every account switch used to canonicalise a draft ("0" -> "0.00") and
+  // silently wedge the keypad, since a filled fraction refuses further digits.
+  const nextDigits = digitsForAccount(accountId);
+  const previousDigits = previousAccountId ? digitsForAccount(previousAccountId) : nextDigits;
+  if (nextDigits !== previousDigits) {
+    amountString.value = toDraftAmountString(parseMajorToMinor(amountString.value, entryCurrency.value), entryCurrency.value);
+  }
 });
 
 /* --------------------------------- keypad --------------------------------- */
@@ -733,8 +768,8 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--tap-target);
+  height: var(--tap-target);
   flex-shrink: 0;
   background-color: var(--color-surface-sunken);
   border: 1px solid var(--color-border);
@@ -776,7 +811,7 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
 
 .icon-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--tap-target), 1fr));
   gap: var(--space-2);
 }
 
@@ -800,7 +835,7 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
 
 .color-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--tap-target), 1fr));
   gap: var(--space-2);
 }
 

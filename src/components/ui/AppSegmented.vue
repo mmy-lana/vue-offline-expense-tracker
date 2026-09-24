@@ -173,7 +173,7 @@ const setButtonRef = (element: unknown, index: number): void => {
   justify-content: center;
   gap: var(--space-1);
   min-width: 0;
-  min-height: calc(var(--tap-target) - 6px);
+  min-height: var(--tap-target);
   padding: 0 var(--space-2);
   background: transparent;
   border: none;
@@ -201,7 +201,7 @@ const setButtonRef = (element: unknown, index: number): void => {
 }
 
 .size-sm .segment {
-  min-height: 34px;
+  min-height: var(--tap-target);
   font-size: var(--font-size-xs);
 }
 

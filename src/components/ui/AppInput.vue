@@ -211,7 +211,7 @@ defineExpose({ focus, blur, inputRef });
 .field-control {
   flex: 1;
   min-width: 0;
-  min-height: calc(var(--tap-target) - 2px);
+  min-height: var(--tap-target);
   padding: 0;
   background: transparent;
   border: none;
@@ -237,12 +237,12 @@ defineExpose({ focus, blur, inputRef });
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--tap-target);
+  height: var(--tap-target);
   padding: 0;
   border: none;
   border-radius: var(--radius-circle);
-  background-color: var(--color-border);
+  background-color: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
 }

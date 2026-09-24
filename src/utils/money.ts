@@ -9,6 +9,17 @@
 
 const fractionDigitsCache = new Map<string, number>();
 const formatterCache = new Map<string, Intl.NumberFormat>();
+/** Compiled amount patterns, keyed by minor-unit digit count (never by currency). */
+const amountPatternCache = new Map<number, RegExp>();
+
+const amountPattern = (digits: number): RegExp => {
+  const cached = amountPatternCache.get(digits);
+  if (cached !== undefined) return cached;
+
+  const created = digits === 0 ? /^\d+$/ : new RegExp(`^\\d+(\\.\\d{0,${digits}})?$`);
+  amountPatternCache.set(digits, created);
+  return created;
+};
 
 const FALLBACK_FRACTION_DIGITS = 2;
 
@@ -120,8 +131,7 @@ export const parseMajorToMinor = (
   const trimmed = majorString.trim();
   const digits = getCurrencyFractionDigits(currency);
 
-  const pattern = digits === 0 ? /^\d+$/ : new RegExp(`^\\d+(\\.\\d{0,${digits}})?$`);
-  if (!pattern.test(trimmed)) {
+  if (!amountPattern(digits).test(trimmed)) {
     return { isValid: false, minor: 0 };
   }
 

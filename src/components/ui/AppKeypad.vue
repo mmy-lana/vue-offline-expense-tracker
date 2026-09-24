@@ -8,7 +8,7 @@
  * clears the whole entry, matching native calculator keyboards.
  */
 
-import { computed, onBeforeUnmount } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useHaptics } from '@/composables/useHaptics';
 import AppIcon from './AppIcon.vue';
 
@@ -35,6 +35,13 @@ const emit = defineEmits<{ (event: 'press', key: KeypadKey): void }>();
 
 const LONG_PRESS_MS = 550;
 const haptics = useHaptics();
+
+/**
+ * Screen-reader feedback. The keypad is a visual surface: nothing announces that
+ * a held backspace wiped the whole amount, so the clear paths publish to a
+ * polite live region instead.
+ */
+const announcement = ref('');
 
 let holdTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -71,8 +78,11 @@ const handlePointerDown = (key: KeypadKey, event: PointerEvent): void => {
     holdTimer = setTimeout(() => {
       holdTimer = null;
       haptics.trigger('warning');
+      announcement.value = 'Amount cleared';
       emit('press', 'clear');
     }, LONG_PRESS_MS);
+  } else if (key === 'clear') {
+    announcement.value = 'Amount cleared';
   }
 
   haptics.trigger('light');
@@ -101,6 +111,10 @@ defineExpose({ cancelHold: handlePointerUp });
 
 <template>
   <div class="app-keypad" role="group" :aria-label="label" :class="{ disabled }">
+    <p class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+      {{ announcement }}
+    </p>
+
     <button
       v-for="(key, index) in keys"
       :key="`${key}-${index}`"
@@ -172,6 +186,18 @@ defineExpose({ cancelHold: handlePointerUp });
 
 .key-label {
   line-height: 1;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

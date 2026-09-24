@@ -55,7 +55,13 @@ const groupWidth = computed(() => props.barWidth * 2 + 10);
 const chartWidth = computed(() =>
   Math.max(props.points.length * (groupWidth.value + props.groupGap) + props.groupGap, 120)
 );
-const plotHeight = computed(() => props.height - AXIS_HEIGHT - TOP_PADDING);
+/**
+ * The outer SVG height is clamped too, not just the plot area: a negative or
+ * zero `height` prop would otherwise emit `<svg height="-30">`, which browsers
+ * reject as invalid geometry and log a warning for.
+ */
+const svgHeight = computed(() => Math.max(0, props.height));
+const plotHeight = computed(() => Math.max(0, svgHeight.value - AXIS_HEIGHT - TOP_PADDING));
 
 const maxValue = computed(() =>
   props.points.reduce((max, point) => Math.max(max, point.income, point.expense), 0)
@@ -144,8 +150,8 @@ const selectGroup = (index: number): void => {
       <svg
         class="cashflow-svg"
         :width="chartWidth"
-        :height="height"
-        :viewBox="`0 0 ${chartWidth} ${height}`"
+        :height="svgHeight"
+        :viewBox="`0 0 ${chartWidth} ${svgHeight}`"
         role="img"
         :aria-label="chartLabel"
       >
