@@ -3,13 +3,15 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useLedgerStore } from '@/stores/ledgerStore';
 import { usePwaManager } from '@/composables/usePwaManager';
 import '@/assets/styles/main.css';
 
 /**
  * Boot sequence: install plugins, arm the service worker lifecycle, seed and
- * open the local database, then mount. A storage failure is rendered by
- * `App.vue` as a retryable error screen instead of failing silently.
+ * open the local database, bridge IndexedDB into reactive state, then mount. A
+ * storage failure is rendered by `App.vue` as a retryable error screen instead
+ * of failing silently.
  */
 const bootstrap = async (): Promise<void> => {
   const app = createApp(App);
@@ -23,6 +25,10 @@ const bootstrap = async (): Promise<void> => {
   usePwaManager();
 
   await useSettingsStore(pinia).initialize();
+
+  // Live queries start even if settings failed: the error screen still needs the
+  // stores to be defined, and a retry reuses the same subscriptions.
+  useLedgerStore(pinia).startSync();
 
   app.mount('#app');
 };

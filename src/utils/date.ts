@@ -196,6 +196,30 @@ export const formatYearMonthLabel = (yearMonth: string, locale?: string): string
   );
 };
 
+/** `Sep` for a month bucket, used by compact axis labels. */
+export const formatYearMonthShortLabel = (yearMonth: string, locale?: string): string => {
+  const match = MONTH_BUCKET_PATTERN.exec(yearMonth);
+  if (!match) return yearMonth;
+
+  const resolvedLocale =
+    locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
+  return new Intl.DateTimeFormat(resolvedLocale, { month: 'short' }).format(
+    new Date(Number(match[1]), Number(match[2]) - 1, 1)
+  );
+};
+
+/** `Sep 2026` for a month bucket, used where space is tighter than the full label. */
+export const formatYearMonthCompactLabel = (yearMonth: string, locale?: string): string => {
+  const match = MONTH_BUCKET_PATTERN.exec(yearMonth);
+  if (!match) return yearMonth;
+
+  const resolvedLocale =
+    locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
+  return new Intl.DateTimeFormat(resolvedLocale, { month: 'short', year: 'numeric' }).format(
+    new Date(Number(match[1]), Number(match[2]) - 1, 1)
+  );
+};
+
 /** `12 Sep 2026` for a calendar day. */
 export const formatDateLabel = (dateString: string, locale?: string): string => {
   const date = parseLocalDate(dateString);
