@@ -67,7 +67,11 @@ const refreshCounts = async (): Promise<void> => {
   counts.value = { transactions, accounts, categories, budgets, receipts };
 };
 
-void refreshCounts();
+refreshCounts().catch(() => {
+  // A blocked or closed IndexedDB connection must not surface as an unhandled
+  // rejection during boot; the panel simply reports zeros until data is readable.
+  counts.value = { transactions: 0, accounts: 0, categories: 0, budgets: 0, receipts: 0 };
+});
 
 /** Saves generated text as a file on the device (no network involved). */
 const triggerDownload = (content: string, fileName: string, mimeType: string): void => {

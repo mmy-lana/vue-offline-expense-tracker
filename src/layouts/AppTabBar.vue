@@ -109,7 +109,10 @@ const handleQuickAdd = (): void => {
   align-items: center;
   justify-content: space-around;
   height: var(--tab-bar-height);
-  padding: 0 var(--space-1);
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: max(var(--safe-area-left), var(--space-1));
+  padding-right: max(var(--safe-area-right), var(--space-1));
 }
 
 .tab-button {

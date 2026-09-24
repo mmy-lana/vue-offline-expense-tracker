@@ -62,11 +62,14 @@ video {
 }
 
 :root {
-  /* ---------- Hardware safe areas (notch, home indicator, rounded corners) */
+  /* ---------- Hardware safe areas (notch, dynamic island, home indicator) */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+  /* Bar padding floor: 14px keeps titles off the status bar even when a browser
+     reports a zero inset, and iOS standalone raises it to 54px (see AppHeader). */
+  --header-safe-top: max(var(--safe-area-top), 14px);
 
   /* ---------- Spacing (4px grid) */
   --space-0: 0px;

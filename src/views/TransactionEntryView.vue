@@ -11,7 +11,7 @@
  * ledger's swipe "Edit" action opens.
  */
 
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useLedgerStore } from '@/stores/ledgerStore';
 import { useCurrency } from '@/composables/useCurrency';
@@ -61,6 +61,40 @@ const note = ref<string>('');
 const transactionDate = ref<string>(getCurrentLocalDateString());
 const isNoteFocused = ref(false);
 const isSubmitting = ref(false);
+
+/**
+ * Virtual-keyboard race guard.
+ *
+ * Re-docking the keypad synchronously on blur re-renders the layout between the
+ * pointer-down and the click of whatever the user actually tapped (usually Save),
+ * which drops the tap. Hiding state is therefore deferred by a short timeout that
+ * focus cancels — the tap lands first, then the keypad comes back.
+ */
+const NOTE_BLUR_SETTLE_MS = 150;
+let blurTimer: ReturnType<typeof setTimeout> | null = null;
+
+const handleNoteFocus = (): void => {
+  if (blurTimer !== null) {
+    clearTimeout(blurTimer);
+    blurTimer = null;
+  }
+  isNoteFocused.value = true;
+};
+
+const handleNoteBlur = (): void => {
+  if (blurTimer !== null) clearTimeout(blurTimer);
+  blurTimer = setTimeout(() => {
+    isNoteFocused.value = false;
+    blurTimer = null;
+  }, NOTE_BLUR_SETTLE_MS);
+};
+
+onBeforeUnmount(() => {
+  if (blurTimer !== null) {
+    clearTimeout(blurTimer);
+    blurTimer = null;
+  }
+});
 const formError = ref<string | null>(null);
 const isDeleteConfirmOpen = ref(false);
 
@@ -437,8 +471,8 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
           :maxlength="120"
           enter-key-hint="done"
           clearable
-          @focus="isNoteFocused = true"
-          @blur="isNoteFocused = false"
+          @focus="handleNoteFocus"
+          @blur="handleNoteBlur"
           @enter="isNoteFocused = false"
         />
       </section>
@@ -552,8 +586,19 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: max(var(--safe-area-top), var(--space-3)) var(--space-3) var(--space-2);
+  padding-top: var(--header-safe-top);
+  padding-bottom: var(--space-2);
+  padding-left: max(var(--safe-area-left), var(--space-3));
+  padding-right: max(var(--safe-area-right), var(--space-3));
   border-bottom: 1px solid var(--color-border);
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .entry-header {
+      padding-top: max(var(--safe-area-top), 54px);
+    }
+  }
 }
 
 .entry-title {

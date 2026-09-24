@@ -79,9 +79,26 @@ const goBack = (): void => {
   position: relative;
   z-index: var(--z-header);
   flex-shrink: 0;
-  padding-top: max(var(--safe-area-top), var(--space-3));
+  padding-top: var(--header-safe-top);
   background-color: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+}
+
+/**
+ * iPhone Dynamic Island / notch clearance.
+ *
+ * An installed iOS web app reports `safe-area-inset-top` for the sensor housing,
+ * but the value can lag during the first paint and landscape re-layout, so the
+ * bar takes the larger of the inset and the 54px sensor band. iOS is detected
+ * with `-webkit-touch-callout` (Safari-only) and combined with the standalone
+ * display mode through nesting, because `@supports` cannot test media features.
+ */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) {
+    .app-header {
+      padding-top: max(var(--safe-area-top), 54px);
+    }
+  }
 }
 
 .header-content {
@@ -89,7 +106,10 @@ const goBack = (): void => {
   align-items: center;
   gap: var(--space-2);
   min-height: var(--header-height);
-  padding: 0 var(--space-2) 0 var(--space-2);
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: max(var(--safe-area-left), var(--space-2));
+  padding-right: max(var(--safe-area-right), var(--space-2));
 }
 
 .header-left,

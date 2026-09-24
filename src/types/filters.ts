@@ -69,9 +69,13 @@ export const matchesFilters = (
   const query = normalize(filters.search);
   if (query.length === 0) return true;
 
+  // Records can arrive from a restored archive, so never assume the shape of a
+  // nested array: `tags: undefined` must degrade to "no tags", not a TypeError.
+  const tagsString = Array.isArray(transaction.tags) ? transaction.tags.filter(Boolean).join(' ') : '';
+
   const haystack = [
-    transaction.note,
-    transaction.tags.join(' '),
+    transaction.note ?? '',
+    tagsString,
     lookup.categoryName ?? '',
     lookup.accountName ?? '',
     lookup.toAccountName ?? ''
