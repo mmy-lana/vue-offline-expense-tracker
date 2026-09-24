@@ -23,6 +23,22 @@ import type {
 export const BACKUP_APP_ID = 'vue-offline-expense-tracker';
 export const BACKUP_VERSION = 1;
 
+/**
+ * Hard ingestion limits.
+ *
+ * A restore reads a file the user picked, which may be corrupt or hostile; every
+ * limit is enforced *before* the payload is parsed or decoded so a 2GB archive or
+ * a zip-bomb of base64 attachments can never exhaust the heap.
+ */
+export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
+export const MAX_RECEIPT_COUNT = 500;
+export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+
+const MEGABYTE = 1024 * 1024;
+
+/** Estimated decoded size of a base64 payload, without decoding it. */
+const estimateBase64Bytes = (base64: string): number => Math.ceil((base64.length * 3) / 4);
+
 export type SerializedReceipt = Omit<ReceiptAttachment, 'dataBlob'> & { dataBase64: string };
 
 export interface ExportArchiveV1 {
@@ -160,6 +176,23 @@ export const validateArchive = (raw: unknown): ArchiveValidation => {
   const transactionRecords = transactions as Transaction[];
   const receiptRecords = receipts as SerializedReceipt[];
 
+  // Size gates run before any structural validation: the cheapest checks on the
+  // largest payload come first.
+  if (receiptRecords.length > MAX_RECEIPT_COUNT) {
+    return fail(`Backup exceeds the maximum of ${MAX_RECEIPT_COUNT} receipt attachments`);
+  }
+
+  for (const receipt of receiptRecords) {
+    if (typeof receipt.dataBase64 !== 'string') {
+      return fail('A receipt attachment contains invalid data');
+    }
+    if (estimateBase64Bytes(receipt.dataBase64) > MAX_RECEIPT_BYTES) {
+      return fail(
+        `Receipt "${receipt.fileName || 'unknown'}" exceeds the ${MAX_RECEIPT_BYTES / MEGABYTE}MB attachment limit`
+      );
+    }
+  }
+
   if (settingsRecords.length !== 1) return fail('Settings record missing');
   const settingsRecord = settingsRecords[0];
   if (!settingsRecord || settingsRecord.id !== 'user_settings') return fail('Settings record missing');
@@ -240,6 +273,15 @@ export const validateArchive = (raw: unknown): ArchiveValidation => {
  * single transaction: a rejected backup leaves existing data untouched.
  */
 export const restoreBackupJSON = async (json: string): Promise<{ success: boolean; message: string }> => {
+  // Raw-size gate first: a file past the limit is rejected before `JSON.parse`
+  // materialises it, so the heap never holds the attacker's structure.
+  if (json.length > MAX_BACKUP_BYTES) {
+    return {
+      success: false,
+      message: `Restore failed: the file exceeds the ${MAX_BACKUP_BYTES / MEGABYTE}MB backup limit`
+    };
+  }
+
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -300,14 +342,22 @@ export const restoreBackupJSON = async (json: string): Promise<{ success: boolea
 };
 
 /**
- * Quotes a CSV field and neutralises spreadsheet formula injection, which
- * occurs when a cell begins with `=`, `+`, `-`, `@`, tab or carriage return.
+ * Quotes a CSV field and neutralises spreadsheet formula injection.
+ *
+ * OWASP guidance is enforced on the *trimmed* value, because a leading space,
+ * tab or carriage return does not stop Excel/Sheets from evaluating the cell —
+ * `" =cmd|' /C calc'!A0"` still executes. Anything after trimming that begins
+ * with a formula trigger is prefixed with a single quote so the cell is treated
+ * as text.
  */
 export const sanitizeForCSV = (input: string): string => {
-  const escaped = input.replace(/"/g, '""');
+  const normalized = String(input ?? '').trimStart();
+  const escaped = normalized.replace(/"/g, '""');
+
   if (/^[=+\-@\t\r]/.test(escaped)) {
     return `"'${escaped}"`;
   }
+
   return `"${escaped}"`;
 };
 
@@ -355,8 +405,8 @@ export const generateTransactionsCSV = async (): Promise<string> => {
         sanitizeForCSV(account?.name ?? 'Unknown account'),
         sanitizeForCSV(destination?.name ?? ''),
         sanitizeForCSV(categoryNames.get(transaction.categoryId) ?? ''),
-        sanitizeForCSV(transaction.note),
-        sanitizeForCSV(transaction.tags.join(', '))
+        sanitizeForCSV(transaction.note ?? ''),
+        sanitizeForCSV(Array.isArray(transaction.tags) ? transaction.tags.filter(Boolean).join(', ') : '')
       ].join(',');
     });
 

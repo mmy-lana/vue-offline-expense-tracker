@@ -91,12 +91,18 @@ export const getCurrencyFormatter = (currency: string): Intl.NumberFormat => {
   return formatter;
 };
 
-/** Renders stored minor units as a localised currency string (display only). */
+/**
+ * Renders stored minor units as a localised currency string (display only).
+ *
+ * The major-unit value is derived by string partitioning (see
+ * {@link formatMinorToMajorString}) rather than by dividing the integer by a
+ * power of ten, so the value handed to `Intl` is always the exact decimal the
+ * user should see — no binary-float residue such as 10.049999999999999.
+ */
 export const formatCurrency = (minorUnits: number, currency: string): string => {
   if (!Number.isFinite(minorUnits)) return getCurrencyFormatter(currency).format(0);
-  const digits = getCurrencyFractionDigits(currency);
-  const factor = Math.pow(10, digits);
-  return getCurrencyFormatter(currency).format(minorUnits / factor);
+  const majorString = formatMinorToMajorString(minorUnits, currency);
+  return getCurrencyFormatter(currency).format(Number(majorString));
 };
 
 /**

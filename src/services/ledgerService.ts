@@ -191,11 +191,23 @@ export const deleteTransaction = async (id: string): Promise<void> => {
   });
 };
 
-/** Human-readable reason the base currency is frozen, or `null` when editable. */
+/**
+ * Human-readable reason the base currency is frozen, or `null` when editable.
+ *
+ * Stored amounts are minor units of the base currency's exponent, and nothing is
+ * ever converted (no network, no FX rates). Switching the currency therefore has
+ * to be impossible as soon as any persisted value exists:
+ *  - transactions hold minor-unit amounts,
+ *  - budgets hold minor-unit envelopes,
+ *  - accounts hold an opening balance whose exponent would silently change
+ *    (1000 minor units of a 2-digit currency is 10.00, of a 0-digit currency it
+ *    is 1000).
+ */
 export const getBaseCurrencyLockReason = async (): Promise<string | null> => {
-  const [transactionCount, budgetCount] = await Promise.all([
+  const [transactionCount, budgetCount, accounts] = await Promise.all([
     db.transactions.count(),
-    db.budgets.count()
+    db.budgets.count(),
+    db.accounts.toArray()
   ]);
 
   if (transactionCount > 0) {
@@ -203,6 +215,9 @@ export const getBaseCurrencyLockReason = async (): Promise<string | null> => {
   }
   if (budgetCount > 0) {
     return 'Base currency is locked because monthly budgets are already denominated in it.';
+  }
+  if (accounts.some((account) => account.initialBalance !== 0)) {
+    return 'Base currency is locked because accounts hold non-zero opening balances. Reset every balance to zero first.';
   }
 
   return null;

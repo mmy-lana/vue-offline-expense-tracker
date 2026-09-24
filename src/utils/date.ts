@@ -49,7 +49,14 @@ export const isValidYearMonthString = (value: string): boolean => {
 };
 
 /**
- * Builds a `Date` at local midnight for a `YYYY-MM-DD` string.
+ * Builds a `Date` anchored at midday for a `YYYY-MM-DD` string.
+ *
+ * Midday, not midnight: in timezones whose DST transition happens at 00:00
+ * (Brazil, Lebanon, Chile, Cuba and others) local midnight may not exist on the
+ * transition day, and `Date` silently rolls such instants into the previous or
+ * next day — which would corrupt weekday labels, day steppers and month bounds.
+ * Noon is always a valid, unambiguous local instant.
+ *
  * Returns `null` instead of an `Invalid Date` guard-rail for callers.
  */
 export const parseLocalDate = (dateString: string): Date | null => {
@@ -58,7 +65,7 @@ export const parseLocalDate = (dateString: string): Date | null => {
   const match = CALENDAR_DAY_PATTERN.exec(dateString);
   if (!match) return null;
 
-  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12, 0, 0);
 };
 
 /** Number of calendar days in a `YYYY-MM` bucket (28–31). */
@@ -98,7 +105,7 @@ export const shiftYearMonth = (yearMonth: string, deltaMonths: number): string =
   const monthIndex = Number(match[2]) - 1;
   if (!Number.isFinite(deltaMonths)) return yearMonth;
 
-  const shifted = new Date(year, monthIndex + Math.trunc(deltaMonths), 1);
+  const shifted = new Date(year, monthIndex + Math.trunc(deltaMonths), 1, 12, 0, 0);
   return toYearMonth(shifted);
 };
 
@@ -172,8 +179,9 @@ export const getWeekdayLabels = (firstDayOfWeek: 0 | 1, locale?: string): string
   const resolvedLocale = locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
   const formatter = new Intl.DateTimeFormat(resolvedLocale, { weekday: 'short' });
 
-  // 2024-01-07 is a Sunday, which anchors index 0 to Sunday.
-  const sunday = new Date(2024, 0, 7);
+  // 2024-01-07 is a Sunday, which anchors index 0 to Sunday (noon avoids DST
+  // midnight shifts when later advancing the date).
+  const sunday = new Date(2024, 0, 7, 12, 0, 0);
   const labels: string[] = [];
 
   for (let offset = 0; offset < 7; offset++) {
@@ -192,7 +200,7 @@ export const formatYearMonthLabel = (yearMonth: string, locale?: string): string
 
   const resolvedLocale = locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
   return new Intl.DateTimeFormat(resolvedLocale, { month: 'long', year: 'numeric' }).format(
-    new Date(Number(match[1]), Number(match[2]) - 1, 1)
+    new Date(Number(match[1]), Number(match[2]) - 1, 1, 12, 0, 0)
   );
 };
 
@@ -204,7 +212,7 @@ export const formatYearMonthShortLabel = (yearMonth: string, locale?: string): s
   const resolvedLocale =
     locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
   return new Intl.DateTimeFormat(resolvedLocale, { month: 'short' }).format(
-    new Date(Number(match[1]), Number(match[2]) - 1, 1)
+    new Date(Number(match[1]), Number(match[2]) - 1, 1, 12, 0, 0)
   );
 };
 
@@ -216,7 +224,7 @@ export const formatYearMonthCompactLabel = (yearMonth: string, locale?: string):
   const resolvedLocale =
     locale ?? (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US');
   return new Intl.DateTimeFormat(resolvedLocale, { month: 'short', year: 'numeric' }).format(
-    new Date(Number(match[1]), Number(match[2]) - 1, 1)
+    new Date(Number(match[1]), Number(match[2]) - 1, 1, 12, 0, 0)
   );
 };
 
