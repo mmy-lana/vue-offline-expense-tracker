@@ -88,13 +88,16 @@ const goBack = (): void => {
  * iPhone Dynamic Island / notch clearance.
  *
  * An installed iOS web app reports `safe-area-inset-top` for the sensor housing,
- * but the value can lag during the first paint and landscape re-layout, so the
- * bar takes the larger of the inset and the 54px sensor band. iOS is detected
- * with `-webkit-touch-callout` (Safari-only) and combined with the standalone
- * display mode through nesting, because `@supports` cannot test media features.
+ * but the value can lag during the first paint, so in portrait the bar takes the
+ * larger of the inset and the 54px sensor band. Landscape is deliberately left
+ * out: the sensor housing sits beside the viewport there, so the lateral safe
+ * area insets already clear it and an unconditional 54px band would only inflate
+ * a notchless device. iOS is detected with `-webkit-touch-callout` (Safari-only)
+ * and combined with the display mode through nesting, because `@supports` cannot
+ * test media features.
  */
 @supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) {
+  @media (display-mode: standalone) and (orientation: portrait) {
     .app-header {
       padding-top: max(var(--safe-area-top), 54px);
     }

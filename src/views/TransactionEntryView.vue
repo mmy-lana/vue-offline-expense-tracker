@@ -629,7 +629,7 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
 }
 
 @supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) {
+  @media (display-mode: standalone) and (orientation: portrait) {
     .entry-header {
       padding-top: max(var(--safe-area-top), 54px);
     }

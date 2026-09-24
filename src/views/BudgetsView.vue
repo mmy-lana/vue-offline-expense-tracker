@@ -16,6 +16,7 @@ import DateNavigator from '@/components/molecules/DateNavigator.vue';
 import AppButton from '@/components/ui/AppButton.vue';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { db } from '@/services/db';
+import { generateUUID } from '@/utils/id';
 import { getCurrentYearMonth, isPastYearMonth } from '@/utils/date';
 import type { Budget, BudgetUtilization } from '@/types/models';
 
@@ -82,16 +83,40 @@ const copyFromCurrentMonth = async (): Promise<void> => {
       return;
     }
 
-    for (const budget of source) {
-      await ledgerStore.upsertBudget({
-        categoryId: budget.categoryId,
-        amount: budget.amount,
-        period: 'monthly',
-        yearMonth: activeYearMonth.value
-      });
-    }
+    let copiedCount = 0;
+    await db.transaction('rw', [db.budgets, db.categories], async () => {
+      for (const budget of source) {
+        const category = await db.categories.get(budget.categoryId);
+        if (!category || category.type !== 'expense' || category.isHidden || category.isArchived) {
+          continue;
+        }
 
-    statusMessage.value = `Copied ${source.length} envelope(s) into this month.`;
+        const existing = await db.budgets
+          .where('[categoryId+yearMonth]')
+          .equals([budget.categoryId, activeYearMonth.value])
+          .first();
+
+        const timestamp = Date.now();
+        if (existing) {
+          await db.budgets.update(existing.id, { amount: budget.amount, updatedAt: timestamp });
+        } else {
+          await db.budgets.add({
+            id: generateUUID(),
+            categoryId: budget.categoryId,
+            amount: budget.amount,
+            period: 'monthly',
+            yearMonth: activeYearMonth.value,
+            createdAt: timestamp,
+            updatedAt: timestamp
+          });
+        }
+        copiedCount++;
+      }
+    });
+
+    statusMessage.value = `Copied ${copiedCount} envelope(s) into this month.`;
+  } catch (error: unknown) {
+    statusMessage.value = error instanceof Error ? error.message : 'Failed to copy envelopes';
   } finally {
     isCopying.value = false;
   }

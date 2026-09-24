@@ -284,6 +284,8 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-lg);
   outline: none;
   will-change: transform;
+  padding-left: max(var(--safe-area-left), 0px);
+  padding-right: max(var(--safe-area-right), 0px);
 }
 
 .sheet-grabber {

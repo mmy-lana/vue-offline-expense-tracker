@@ -8,8 +8,9 @@
  * open the entry sheet for editing.
  */
 
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { liveQuery, type Subscription } from 'dexie';
 import { useLedgerStore } from '@/stores/ledgerStore';
 import { useCurrency } from '@/composables/useCurrency';
 import { useHaptics } from '@/composables/useHaptics';
@@ -45,23 +46,27 @@ const isReceiptOpen = ref(false);
 const deleteTarget = ref<Transaction | null>(null);
 const isDeleteOpen = ref(false);
 const statusMessage = ref<string | null>(null);
-
-const loadReceiptIds = async (): Promise<void> => {
-  try {
-    const receipts = await db.receipts.toArray();
-    receiptIds.value = new Set(receipts.map((receipt) => receipt.transactionId));
-  } catch {
-    receiptIds.value = new Set();
-  }
-};
+let receiptSubscription: Subscription | null = null;
 
 onMounted(() => {
-  void loadReceiptIds();
+  receiptSubscription = liveQuery(() => db.receipts.toArray()).subscribe({
+    next: (receipts) => {
+      receiptIds.value = new Set(receipts.map((receipt) => receipt.transactionId));
+    },
+    error: () => {
+      receiptIds.value = new Set();
+    }
+  });
 
   const focusId = route.query.focus;
   if (typeof focusId === 'string' && focusId.length > 0) {
     statusMessage.value = 'Showing the entry you selected from the dashboard.';
   }
+});
+
+onBeforeUnmount(() => {
+  receiptSubscription?.unsubscribe();
+  receiptSubscription = null;
 });
 
 const filtered = computed(() =>
@@ -138,7 +143,6 @@ const confirmDelete = async (): Promise<void> => {
 
   if (result.ok) {
     haptics.trigger('success');
-    await loadReceiptIds();
   }
 };
 

@@ -7,8 +7,9 @@
  * the most recent entries.
  */
 
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { liveQuery, type Subscription } from 'dexie';
 import { useLedgerStore } from '@/stores/ledgerStore';
 import { useCurrency } from '@/composables/useCurrency';
 import { useLedgerCalculations } from '@/composables/useLedgerCalculations';
@@ -43,17 +44,23 @@ const {
 
 const activeYearMonth = ref(getCurrentYearMonth());
 const receiptIds = ref<Set<string>>(new Set());
+let receiptSubscription: Subscription | null = null;
 
-const loadReceiptIds = async (): Promise<void> => {
-  try {
-    const receipts = await db.receipts.toArray();
-    receiptIds.value = new Set(receipts.map((receipt) => receipt.transactionId));
-  } catch {
-    receiptIds.value = new Set();
-  }
-};
+onMounted(() => {
+  receiptSubscription = liveQuery(() => db.receipts.toArray()).subscribe({
+    next: (receipts) => {
+      receiptIds.value = new Set(receipts.map((receipt) => receipt.transactionId));
+    },
+    error: () => {
+      receiptIds.value = new Set();
+    }
+  });
+});
 
-void loadReceiptIds();
+onBeforeUnmount(() => {
+  receiptSubscription?.unsubscribe();
+  receiptSubscription = null;
+});
 
 const boundaries = computed(() => getMonthBoundaries(activeYearMonth.value));
 const monthTransactions = computed(() => ledgerStore.transactionsInMonth(activeYearMonth.value));
