@@ -1,38 +1,69 @@
-*, *::before, *::after {
+/**
+ * Phase 1 shell foundation tokens.
+ *
+ * Native-app ergonomics in three rules:
+ * 1. No rubber-band scroll leak outside the shell viewport.
+ * 2. No tap highlight flash on interactive atoms.
+ * 3. Every input renders at >= 16px so iOS never zooms on focus.
+ * Phase 2 expands this file with the full light/dark scale and safe-area insets.
+ */
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   height: 100%;
   overscroll-behavior-y: none;
 }
 
-button, [role='button'] {
+button,
+[role='button'] {
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-size: max(16px, 1em);
   user-select: text;
   -webkit-user-select: text;
 }
 
 :root {
-  --color-bg-primary: #F8FAFC;
-  --color-surface: #FFFFFF;
-  --color-text-primary: #0F172A;
+  --color-bg-primary: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text-primary: #0f172a;
   --color-text-muted: #475569;
   --color-border: rgba(15, 23, 42, 0.1);
 }
 
 :root.dark {
-  --color-bg-primary: #0F172A;
-  --color-surface: #1E293B;
-  --color-text-primary: #F8FAFC;
-  --color-text-muted: #94A3B8;
+  --color-bg-primary: #0f172a;
+  --color-surface: #1e293b;
+  --color-text-primary: #f8fafc;
+  --color-text-muted: #94a3b8;
   --color-border: rgba(255, 255, 255, 0.08);
+}
+
+/**
+ * Flash-of-wrong-theme guard: before the settings store reads the persisted
+ * preference and stamps `.dark`/`.light`, follow the OS palette so a dark-mode
+ * user never sees a white frame on cold start.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --color-bg-primary: #0f172a;
+    --color-surface: #1e293b;
+    --color-text-primary: #f8fafc;
+    --color-text-muted: #94a3b8;
+    --color-border: rgba(255, 255, 255, 0.08);
+  }
 }

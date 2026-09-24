@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-ssr
+.pnpm-store
 *.local
 .env.local
 .env.*.local

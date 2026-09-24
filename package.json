@@ -12,13 +12,14 @@
     "dexie": "latest",
     "pinia": "latest",
     "vue": "latest",
-    "vue-router": "latest"
+    "vue-router": "latest",
+    "workbox-window": "^7.4.1"
   },
   "devDependencies": {
     "@types/node": "latest",
     "@vite-pwa/assets-generator": "latest",
     "@vitejs/plugin-vue": "latest",
-    "typescript": "latest",
+    "typescript": "^5.9.3",
     "vite": "latest",
     "vite-plugin-pwa": "latest",
     "vue-tsc": "latest"
