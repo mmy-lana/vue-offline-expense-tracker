@@ -227,6 +227,13 @@ defineExpose({ focus, blur, inputRef });
   cursor: not-allowed;
 }
 
+.field-control::-webkit-search-cancel-button,
+.field-control::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 .field-suffix {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);

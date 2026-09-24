@@ -43,7 +43,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (event: 'update:modelValue', accountId: string): void;
   (event: 'create'): void;
-  (event: 'select', account: Account): void;
 }>();
 
 const haptics = useHaptics();
@@ -68,7 +67,6 @@ const selectAccount = (account: Account): void => {
 
   haptics.trigger('selection');
   emit('update:modelValue', account.id);
-  emit('select', account);
 };
 
 const handleCreate = (): void => {

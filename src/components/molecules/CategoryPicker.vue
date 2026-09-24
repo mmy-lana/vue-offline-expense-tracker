@@ -7,7 +7,7 @@
  * for creating a category without leaving the entry flow.
  */
 
-import { computed } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useHaptics } from '@/composables/useHaptics';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { resolveIconName } from '@/components/ui/icons';
@@ -42,6 +42,7 @@ const visibleCategories = computed(() =>
 );
 
 const isEmpty = computed(() => visibleCategories.value.length === 0);
+const buttonRefs = ref<HTMLButtonElement[]>([]);
 
 const selectCategory = (category: Category): void => {
   if (props.disabled || category.id === props.modelValue) return;
@@ -55,20 +56,45 @@ const handleCreate = (): void => {
   haptics.trigger('light');
   emit('create');
 };
+
+const handleKeydown = async (event: KeyboardEvent, index: number): Promise<void> => {
+  const total = visibleCategories.value.length;
+  if (total === 0) return;
+
+  let nextIndex: number | null = null;
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    nextIndex = (index + 1) % total;
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    nextIndex = (index - 1 + total) % total;
+  }
+
+  if (nextIndex !== null) {
+    event.preventDefault();
+    const target = visibleCategories.value[nextIndex];
+    if (target) {
+      selectCategory(target);
+      await nextTick();
+      buttonRefs.value[nextIndex]?.focus();
+    }
+  }
+};
 </script>
 
 <template>
   <div class="category-picker" role="radiogroup" :aria-label="label">
     <button
-      v-for="category in visibleCategories"
+      v-for="(category, index) in visibleCategories"
       :key="category.id"
+      :ref="(el) => { if (el) buttonRefs[index] = el as HTMLButtonElement; }"
       type="button"
       class="category-tile"
       role="radio"
       :aria-checked="category.id === modelValue"
+      :tabindex="category.id === modelValue || (!modelValue && index === 0) ? 0 : -1"
       :disabled="disabled"
       :class="{ selected: category.id === modelValue }"
       @click="selectCategory(category)"
+      @keydown="handleKeydown($event, index)"
     >
       <span class="category-bubble" :style="{ backgroundColor: category.colorHex }">
         <AppIcon :name="resolveIconName(category.icon)" :size="18" color="#FFFFFF" />
