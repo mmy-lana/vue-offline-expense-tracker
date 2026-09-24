@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
 import { useSettingsStore } from '@/stores/settingsStore';
+import AppShell from '@/layouts/AppShell.vue';
 
 const settingsStore = useSettingsStore();
 </script>
 
 <template>
-  <RouterView v-if="settingsStore.isReady" />
+  <AppShell v-if="settingsStore.isReady" />
 
   <div v-else-if="settingsStore.hasFailed" class="boot-screen boot-screen--error" role="alert">
     <h1 class="boot-heading">Local storage unavailable</h1>
