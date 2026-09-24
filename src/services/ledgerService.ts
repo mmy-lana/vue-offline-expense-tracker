@@ -102,6 +102,7 @@ const assertTransactionIntegrity = async (record: Transaction): Promise<void> =>
 
   const sourceAccount = await db.accounts.get(record.accountId);
   if (!sourceAccount) throw new Error('Source account no longer exists');
+  if (sourceAccount.isArchived) throw new Error('Cannot post transactions to an archived account');
 
   if (record.type === 'transfer') {
     if (record.categoryId !== TRANSFER_CATEGORY_ID) {
@@ -114,6 +115,7 @@ const assertTransactionIntegrity = async (record: Transaction): Promise<void> =>
 
     const destinationAccount = await db.accounts.get(record.toAccountId);
     if (!destinationAccount) throw new Error('Destination account no longer exists');
+    if (destinationAccount.isArchived) throw new Error('Cannot transfer to an archived account');
     if (destinationAccount.currency !== sourceAccount.currency) {
       throw new Error('Transfers must stay within a single currency');
     }
@@ -123,6 +125,7 @@ const assertTransactionIntegrity = async (record: Transaction): Promise<void> =>
 
   const category = await db.categories.get(record.categoryId);
   if (!category) throw new Error('Selected category no longer exists');
+  if (category.isArchived) throw new Error('Cannot post transactions to an archived category');
   if (category.type !== record.type) {
     throw new Error(`${category.name} cannot be used for a ${record.type} entry`);
   }
@@ -419,6 +422,17 @@ export const updateAccount = async (
     if (next.name !== undefined) {
       const name = next.name.trim();
       if (name.length === 0) throw new Error('Account name is required');
+
+      const duplicate = await db.accounts
+        .filter(
+          (account) =>
+            account.id !== id &&
+            !account.isArchived &&
+            account.name.trim().toLowerCase() === name.toLowerCase()
+        )
+        .first();
+      if (duplicate) throw new Error(`An account named "${name}" already exists`);
+
       next.name = name;
     }
 

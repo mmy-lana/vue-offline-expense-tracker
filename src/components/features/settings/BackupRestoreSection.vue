@@ -13,7 +13,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import {
   generateBackupJSON,
   generateTransactionsCSV,
-  restoreBackupJSON
+  restoreBackupJSON,
+  MAX_BACKUP_BYTES
 } from '@/services/dataTransfer';
 import { db } from '@/services/db';
 import AppButton from '@/components/ui/AppButton.vue';
@@ -130,6 +131,15 @@ const handleFileSelected = async (event: Event): Promise<void> => {
   if (!file) return;
 
   status.value = null;
+
+  if (file.size > MAX_BACKUP_BYTES) {
+    status.value = {
+      tone: 'error',
+      message: `File exceeds the maximum allowed backup size of ${MAX_BACKUP_BYTES / (1024 * 1024)}MB`
+    };
+    input.value = '';
+    return;
+  }
 
   try {
     pendingFileText.value = await file.text();

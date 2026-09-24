@@ -34,6 +34,22 @@ export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 export const MAX_RECEIPT_COUNT = 500;
 export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
+export const ALLOWED_RECEIPT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf'
+]);
+
+export const sanitizeAttachmentFileName = (name: string | undefined): string => {
+  const base = String(name ?? '')
+    .replace(/^.*[/\\]/, '')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/^\.+/, '');
+  return base.slice(0, 100) || 'attachment';
+};
+
 const MEGABYTE = 1024 * 1024;
 
 /** Estimated decoded size of a base64 payload, without decoding it. */
@@ -183,12 +199,17 @@ export const validateArchive = (raw: unknown): ArchiveValidation => {
   }
 
   for (const receipt of receiptRecords) {
-    if (typeof receipt.dataBase64 !== 'string') {
-      return fail('A receipt attachment contains invalid data');
+    if (typeof receipt.dataBase64 !== 'string' || receipt.dataBase64.length === 0) {
+      return fail('A receipt attachment is empty or malformed');
     }
     if (estimateBase64Bytes(receipt.dataBase64) > MAX_RECEIPT_BYTES) {
       return fail(
         `Receipt "${receipt.fileName || 'unknown'}" exceeds the ${MAX_RECEIPT_BYTES / MEGABYTE}MB attachment limit`
+      );
+    }
+    if (!ALLOWED_RECEIPT_MIME_TYPES.has(String(receipt.mimeType ?? '').toLowerCase())) {
+      return fail(
+        `Receipt "${receipt.fileName || 'unknown'}" has an unsupported or unsafe type: ${receipt.mimeType}`
       );
     }
   }
@@ -219,13 +240,16 @@ export const validateArchive = (raw: unknown): ArchiveValidation => {
   }
 
   const accountIds = new Set(accountRecords.map((account) => account.id));
-  const categoryIds = new Set(categoryRecords.map((category) => category.id));
+  const categoryMap = new Map(categoryRecords.map((category) => [category.id, category]));
+  // Retained for the budget pass below, which only needs membership.
+  const categoryIds = new Set(categoryMap.keys());
   const transactionIds = new Set(transactionRecords.map((transaction) => transaction.id));
 
-  if (!categoryIds.has(TRANSFER_CATEGORY_ID)) return fail('The system transfer category is missing');
+  if (!categoryMap.has(TRANSFER_CATEGORY_ID)) return fail('The system transfer category is missing');
 
   for (const transaction of transactionRecords) {
-    if (!accountIds.has(transaction.accountId) || !categoryIds.has(transaction.categoryId)) {
+    const category = categoryMap.get(transaction.categoryId);
+    if (!accountIds.has(transaction.accountId) || !category) {
       return fail(`Transaction ${transaction.id} references a missing account or category`);
     }
     if (!Number.isSafeInteger(transaction.amount) || transaction.amount <= 0) {
@@ -246,6 +270,15 @@ export const validateArchive = (raw: unknown): ArchiveValidation => {
       }
       if (transaction.categoryId !== TRANSFER_CATEGORY_ID) {
         return fail(`Transfer ${transaction.id} is missing the system transfer category`);
+      }
+    } else {
+      if (transaction.categoryId === TRANSFER_CATEGORY_ID) {
+        return fail(`Non-transfer transaction ${transaction.id} cannot reference the transfer category`);
+      }
+      if (category.type !== transaction.type) {
+        return fail(
+          `Transaction ${transaction.id} (${transaction.type}) conflicts with category type (${category.type})`
+        );
       }
     }
   }
@@ -298,10 +331,15 @@ export const restoreBackupJSON = async (json: string): Promise<{ success: boolea
 
   let rebuiltReceipts: ReceiptAttachment[];
   try {
-    rebuiltReceipts = receipts.map(({ dataBase64, ...rest }) => ({
-      ...rest,
-      dataBlob: base64ToBlob(dataBase64, rest.mimeType || 'application/octet-stream')
-    }));
+    rebuiltReceipts = receipts.map(({ dataBase64, fileName, mimeType, ...rest }) => {
+      const safeMime = String(mimeType || 'application/octet-stream').toLowerCase();
+      return {
+        ...rest,
+        fileName: sanitizeAttachmentFileName(fileName),
+        mimeType: safeMime,
+        dataBlob: base64ToBlob(dataBase64, safeMime)
+      };
+    });
   } catch {
     return { success: false, message: 'Restore failed: an attachment could not be decoded' };
   }
