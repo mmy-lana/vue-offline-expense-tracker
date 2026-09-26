@@ -40,12 +40,14 @@ const pixelSize = computed(() => `${props.size}px`);
     stroke-linecap="round"
     stroke-linejoin="round"
     :aria-hidden="isDecorative ? 'true' : undefined"
-    :aria-label="label"
+    :aria-label="label || undefined"
     :role="isDecorative ? undefined : 'img'"
     :data-icon="resolvedName"
     focusable="false"
   >
-    <title v-if="label">{{ label }}</title>
+    <!-- v-text writes a text node instead of an interpolated child, so a label
+         holding markup is never parsed as elements. -->
+    <title v-if="label" v-text="label" />
     <rect
       v-for="(rect, index) in definition.rects ?? []"
       :key="`rect-${index}`"
