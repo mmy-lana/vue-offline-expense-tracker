@@ -8,7 +8,7 @@
  * 30 days, because a backup nobody took is not a backup.
  */
 
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useSettingsStore } from '@/stores/settingsStore';
 import {
   generateBackupJSON,
@@ -172,6 +172,20 @@ const confirmRestore = async (): Promise<void> => {
     pendingFileText.value = '';
   }
 };
+
+/**
+ * Dismissing the confirm sheet drops the parsed archive immediately.
+ *
+ * A cancelled restore must not leave up to 50MB of file text pinned on the heap
+ * for the rest of the session. The in-flight restore is exempt: it still reads
+ * `pendingFileText` after the sheet closes, and it clears the buffer itself.
+ */
+watch(isConfirmRestoreOpen, (isOpen) => {
+  if (!isOpen && !isRestoring.value) {
+    pendingFileText.value = '';
+    pendingFileName.value = '';
+  }
+});
 
 onBeforeUnmount(() => {
   pendingFileText.value = '';

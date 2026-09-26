@@ -95,7 +95,9 @@ const download = (): void => {
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+  // WebKit resolves the download asynchronously; revoking in the same task can
+  // cancel the transfer and yield a zero-byte file, so cleanup is deferred.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 </script>
 

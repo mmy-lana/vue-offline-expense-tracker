@@ -399,7 +399,13 @@ export const sanitizeForCSV = (input: string): string => {
   return `"${escaped}"`;
 };
 
-/** Renders every transaction as a spreadsheet row with a UTF-8 BOM. */
+/**
+ * Renders every transaction as a spreadsheet row with a UTF-8 BOM.
+ *
+ * Every cell is passed through {@link sanitizeForCSV}, not just the free-text
+ * ones: identifiers, dates, type tags, amounts and currency codes are persisted
+ * data, so a restored backup can still carry a hostile value in any column.
+ */
 export const generateTransactionsCSV = async (): Promise<string> => {
   const [transactions, categories, accounts] = await Promise.all([
     db.transactions.toArray(),
@@ -434,12 +440,12 @@ export const generateTransactionsCSV = async (): Promise<string> => {
       const destination = transaction.toAccountId ? accountsById.get(transaction.toAccountId) : undefined;
 
       return [
-        transaction.id,
-        transaction.date,
-        transaction.yearMonth,
-        transaction.type,
-        amountMajor,
-        currency,
+        sanitizeForCSV(transaction.id),
+        sanitizeForCSV(transaction.date),
+        sanitizeForCSV(transaction.yearMonth),
+        sanitizeForCSV(transaction.type),
+        sanitizeForCSV(amountMajor),
+        sanitizeForCSV(currency),
         sanitizeForCSV(account?.name ?? 'Unknown account'),
         sanitizeForCSV(destination?.name ?? ''),
         sanitizeForCSV(categoryNames.get(transaction.categoryId) ?? ''),

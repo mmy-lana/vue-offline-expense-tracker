@@ -351,6 +351,15 @@ export const deleteCategory = async (id: string): Promise<void> => {
     if (!category) throw new Error('Category not found');
     if (category.isSystem) throw new Error('System categories cannot be deleted');
 
+    // Deleting the final usable category of a type would leave the entry form
+    // with nothing to post to, so the group must always keep one survivor.
+    const remainingActive = await db.categories
+      .filter((c) => c.type === category.type && !c.isArchived && !c.isHidden && c.id !== id)
+      .count();
+    if (remainingActive < 1) {
+      throw new Error(`At least one active ${category.type} category is required`);
+    }
+
     const usageCount = await db.transactions.where('categoryId').equals(id).count();
     if (usageCount > 0) {
       throw new Error(`Category is used by ${usageCount} transaction(s) — archive it instead`);
@@ -470,6 +479,13 @@ export const deleteAccount = async (id: string): Promise<void> => {
   await db.transaction('rw', [db.accounts, db.transactions], async () => {
     const existing = await db.accounts.get(id);
     if (!existing) throw new Error('Account not found');
+
+    // An account is the only anchor a new entry can be posted against, so the
+    // ledger must never be left without one. Mirrors the `setAccountArchived` guard.
+    if (!existing.isArchived) {
+      const activeCount = await db.accounts.filter((account) => !account.isArchived).count();
+      if (activeCount <= 1) throw new Error('At least one active account is required');
+    }
 
     const used = await db.transactions.where('accountId').equals(id).or('toAccountId').equals(id).count();
     if (used > 0) throw new Error('Account has transactions — archive it instead');
