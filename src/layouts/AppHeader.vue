@@ -95,9 +95,13 @@ const goBack = (): void => {
  * a notchless device. iOS is detected with `-webkit-touch-callout` (Safari-only)
  * and combined with the display mode through nesting, because `@supports` cannot
  * test media features.
+ *
+ * The band is additionally gated on `min-height: 800px`, which every sensor-housing
+ * iPhone satisfies. Notchless iPhones in standalone mode (SE, 8, 667/736px tall)
+ * would otherwise reserve 54px of empty header for hardware they do not have.
  */
 @supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) and (orientation: portrait) {
+  @media (display-mode: standalone) and (orientation: portrait) and (min-height: 800px) {
     .app-header {
       padding-top: max(var(--safe-area-top), 54px);
     }

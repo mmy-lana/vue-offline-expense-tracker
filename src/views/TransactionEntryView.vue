@@ -628,8 +628,13 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
   border-bottom: 1px solid var(--color-border);
 }
 
+/**
+ * Dynamic Island / notch clearance — see `AppHeader` for the full rationale.
+ * The `min-height: 800px` gate keeps notchless standalone devices (SE, 8) on
+ * their real status-bar inset instead of an empty 54px band.
+ */
 @supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) and (orientation: portrait) {
+  @media (display-mode: standalone) and (orientation: portrait) and (min-height: 800px) {
     .entry-header {
       padding-top: max(var(--safe-area-top), 54px);
     }
@@ -885,6 +890,39 @@ const resolvedCategoryIcon = computed(() => resolveIconName(newCategoryIcon.valu
 @media (min-height: 760px) {
   .entry-content {
     gap: var(--space-5);
+  }
+}
+
+/**
+ * Compact landscape phones (iPhone SE/8 rotated, small Androids).
+ *
+ * At <=500px tall the hero amount plus a full-size keypad leaves the scrollable
+ * form area collapsed to a sliver. The hero and keys shrink so the fields stay
+ * visible above the docked keypad; the keys are still ~38px, the practical floor
+ * for a dense numeric pad. Declared last so it overrides the base rules above.
+ */
+@media (orientation: landscape) and (max-height: 500px) {
+  .entry-top {
+    padding: var(--space-1) var(--space-4) 0;
+    gap: var(--space-1);
+  }
+
+  .amount-hero {
+    padding: 0;
+  }
+
+  .amount-text {
+    font-size: var(--font-size-xl);
+  }
+
+  .keypad-dock {
+    padding-top: var(--space-1);
+    padding-bottom: max(var(--safe-area-bottom), var(--space-1));
+  }
+
+  :deep(.keypad-key) {
+    min-height: 38px;
+    font-size: var(--font-size-md);
   }
 }
 </style>
